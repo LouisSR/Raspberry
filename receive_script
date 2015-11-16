@@ -1,0 +1,7 @@
+#!/bin/sh
+
+cd /Users/louissaint-raymond2/Documents/Louis/Robotique/Raspberry
+
+scp -r pi@raspberrypi.local:Desktop/Robotique/images/ .
+
+#scp  pi@raspberrypi.local:Desktop/Robotique/COMwithArduino.py .
