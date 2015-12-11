@@ -39,7 +39,7 @@ def decode(data):
 		return None
 
 	length = data[1]
-	return [ byte for byte in data[2:2+length] ]
+	return data[2:2+length]
 
 def ToBytes(data):
 	bytes2 = bytes(0);
