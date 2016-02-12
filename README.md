@@ -1,2 +1,2 @@
 # Raspberry
-My personal scripts for Raspberry
+Personal scripts for Raspberry
