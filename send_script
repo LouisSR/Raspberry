@@ -1,8 +1,0 @@
-#!/bin/sh
-
-cd /Users/louissaint-raymond2/Documents/Louis/Robotique/Raspberry
-
-scp ./Python/*.py pi@raspberrypi.local:Desktop/Robotique
-
-#scp -r ./Python/images/ pi@raspberrypi.local:Desktop/Robotique/
-
