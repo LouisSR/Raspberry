@@ -5,4 +5,7 @@
 
 *.webloc
 
-receive_script
+*_script
+
+
+Python/Archives/*
