@@ -10,3 +10,5 @@
 Python/Archives/*
 
 Python/images/*
+
+*.pyc
