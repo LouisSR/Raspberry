@@ -2,11 +2,13 @@
 
 import time
 import math
+import sys
 from threading import Thread
 from minIMU import IMUPoller
 from COMwithArduino import COMwithArduino
 from gpsUltimate import GpsPoller
 from saveData import SaveData
+from ImageAquisition import ImageAquisition
 
 Done = False
 
@@ -29,6 +31,8 @@ class Thread_IMU(Thread):
 			if self.debug:
 				print "IMU: Roll %.2f" % math.degrees(IMU_position[0])
 			time.sleep(self.sleep_time)
+		if self.debug:
+			print "Thread IMU exiting"
 
 class Thread_COM(Thread):
 	def __init__(self, sleep_time, debug=False):
@@ -41,15 +45,20 @@ class Thread_COM(Thread):
 
 	def run(self):
 		while not Done:
-			time1 = time.time()
-			self.arduino.Send( [111, 97] )
+			try:
+				self.arduino.Send( [111, 97] )
+			except IOError:
+				if self.debug:
+					print "Com IO Error"
+				pass
 			time.sleep(self.transmission_time)
 			global COM_message
 			COM_message = self.arduino.Read()
-			print 'Time: ', time.time()-time1
 			if self.debug:
 				print "COM: ", COM_message
 			time.sleep(self.sleep_time)
+		if self.debug:
+			print "Thread COM exiting"
 
 class Thread_GPS(Thread):
 	def __init__(self, sleep_time, debug=False):
@@ -67,8 +76,7 @@ class Thread_GPS(Thread):
 			if self.debug:
 				print 'GPS:', GPS_position
 			time.sleep(self.sleep_time)
-		if Done:
-			self.stop()
+		self.stop()
 
 	def stop(self):
 		print "Thread GPS exiting"
@@ -89,33 +97,39 @@ class Thread_Logger(Thread):
 			data.extend(IMU_position)
 			data.extend(GPS_position)
 			data.extend(COM_message)
-			#data.append(im_proc)
+			#data.extend(im_proc)
 			if self.debug:
 				print "Logger: ", data
 			self.log.write(data)
 			time.sleep(self.sleep_time)
 		self.log.close()
+		if self.debug:
+			print "Thread Logger exiting"
 
-#class Thread_Im_Processing(Thread):
-
-#class Thread_Im_Capture(Thread):
-
+		
 if __name__ == '__main__':
 	#Init
+
+	framerate = 2
+	capture_resolution = (800,600)
+	resize_factor = 2
+	color = int(sys.argv[1])
 
 	thread_imu = Thread_IMU(0.1, debug=False)
 	thread_com = Thread_COM(0.3, debug=False)
 	thread_gps = Thread_GPS(0.5, debug=False)
 	thread_logger = Thread_Logger(0.5, debug=False)
-
+	thread_camera = ImageAquisition(capture_resolution, framerate, color, resize_factor=resize_factor, debug=False)
 
 	#Start threads
+	thread_camera.start()
 	thread_imu.start()
-	thread_com.start()
 	thread_gps.start()
+	thread_com.start()
 	thread_logger.start()
 
 	time.sleep(5)
 	
-	#Stop
+	#Stop threads
 	Done = True
+	thread_camera.stop()
