@@ -110,10 +110,10 @@ class Thread_Logger(Thread):
 if __name__ == '__main__':
 	#Init
 
-	framerate = 2
 	capture_resolution = (800,600)
 	resize_factor = 2
 	color = int(sys.argv[1])
+	framerate = int(sys.argv[2])
 
 	thread_imu = Thread_IMU(0.1, debug=False)
 	thread_com = Thread_COM(0.3, debug=False)
@@ -121,15 +121,24 @@ if __name__ == '__main__':
 	thread_logger = Thread_Logger(0.5, debug=False)
 	thread_camera = ImageAquisition(capture_resolution, framerate, color, resize_factor=resize_factor, debug=False)
 
+	print ''
 	#Start threads
+	time_start = time.time()
 	thread_camera.start()
 	thread_imu.start()
 	thread_gps.start()
 	thread_com.start()
 	thread_logger.start()
 
-	time.sleep(5)
+	time.sleep(10)
 	
 	#Stop threads
 	Done = True
-	thread_camera.stop()
+	images_processed = thread_camera.stop()
+	loop_time = time.time()-time_start
+	
+	print ''
+	print 'Loop time:         %.1f' % (loop_time/images_processed)
+	print 'Processed Images: ', images_processed
+	print 'Real framerate:    %.2f'  % (images_processed/loop_time)
+	print ''

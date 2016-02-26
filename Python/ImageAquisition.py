@@ -83,7 +83,7 @@ class ImageAquisition(Thread):
 			self.camera.close()
 
 	def stop(self):
-		global lock, pool
+		global lock, pool, iteration
 		self.aquire = False
 		time.sleep(0.5)
 		if self.debug:
@@ -98,7 +98,8 @@ class ImageAquisition(Thread):
 			processor.terminated = True
 			processor.join()
 		if self.debug:
-			print"Done",
+			print"Done"
+		return iteration
 
 	def streams(self):
 		while self.aquire:
