@@ -9,3 +9,4 @@ Personal scripts for Raspberry
 4. Install RTIMU library
 5. Install PiCamera
 6. Install OpenCV 3 http://www.pyimagesearch.com/2015/10/26/how-to-install-opencv-3-on-raspbian-jessie/
+7. Install script that will launch the main program: http://www.pihomeserver.fr/2013/05/27/raspberry-pi-home-server-lancer-un-programme-automatiquement-au-demarrage/
