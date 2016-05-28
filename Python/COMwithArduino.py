@@ -16,13 +16,13 @@ class COMwithArduino:
 
 	def Send(self, data):
 		data_length = len(data)
-		message = [data_length] + data + [ self.checksum(data) ]
+		message = [data_length] + data
 		if self.debug:
 			print 'Message : ', message
 		self.bus.write_i2c_block_data(self.address, self.send_cmd, message)
 
 	def Read(self):
-		incomingData = self.bus.read_i2c_block_data(self.address, self.read_cmd, 5)
+		incomingData = self.bus.read_i2c_block_data(self.address, self.read_cmd, 10)
 		
 		decodedData = self.decode(incomingData)#check if incomming data are correct
 		if self.debug:
@@ -30,9 +30,6 @@ class COMwithArduino:
 			print "Message = ", decodedData
 		return decodedData
 
-	def checksum(self, string):
-		#todo
-		return(255)
 
 	def decode(self, data):
 	#Check if start byte and length are correct and return data without start and length bytes
@@ -41,10 +38,6 @@ class COMwithArduino:
 			return None
 		length = data[1]
 		message = data[2:2+length]
-
-		if data[-1] != self.checksum(message):
-			print "Wrong Checksum"
-			return None
 
 		return message
 
