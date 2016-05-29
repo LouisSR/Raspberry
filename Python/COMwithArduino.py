@@ -4,30 +4,45 @@ import smbus
 import time
 
 #Protocol :
-#CMD, data_length, Data, Checksum
+#CMD, data_length, Data
 
 class COMwithArduino:
-	def __init__(self, i2cAddress, debug=False):
+	def __init__(self, i2cAddress, readLength, debug=False):
 		self.bus = smbus.SMBus(1) # if old raspberry : 0 , else 1
 		self.address = i2cAddress
 		self.send_cmd = 0x04
 		self.read_cmd = 0x20
+		self.readLength = readLength
 		self.debug = debug
+		print "Debug", self.debug
 
 	def Send(self, data):
 		data_length = len(data)
 		message = [data_length] + data
 		if self.debug:
-			print 'Message : ', message
-		self.bus.write_i2c_block_data(self.address, self.send_cmd, message)
+			print 'Message to send: ', message
+		try:
+			self.bus.write_i2c_block_data(self.address, self.send_cmd, message)
+		except IOError:
+			if self.debug:
+				print "Com with Arduino: Send Error"
+			pass
 
 	def Read(self):
-		incomingData = self.bus.read_i2c_block_data(self.address, self.read_cmd, 10)
-		
-		decodedData = self.decode(incomingData)#check if incomming data are correct
-		if self.debug:
-			print 'Incoming data', incomingData
-			print "Message = ", decodedData
+		try:
+			incomingData = self.bus.read_i2c_block_data(self.address, self.read_cmd, self.readLength)
+		except IOError:
+			if self.debug:
+				print "Com with Arduino: Read Error"
+			incomingData = False
+			#pass
+		if incomingData:
+			decodedData = self.decode(incomingData)#check if incomming data are correct
+			if self.debug:
+				print 'Incoming data', incomingData
+				print "Message received: ", decodedData
+		else:
+			decodedData = False
 		return decodedData
 
 
