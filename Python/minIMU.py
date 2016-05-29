@@ -39,20 +39,33 @@ class IMUPoller:
 		print("Recommended Poll Interval: %dmS\n" % poll_interval)
 		#time.sleep(poll_interval*1.0/1000.0)
 		
-	def getIMU_position(self):
+	def getIMU(self):
 		if (self.imu.IMURead()):
 			data = self.imu.getIMUData()
-			return(data["fusionPose"])
+			position = data['fusionPose']
+			gyro = data['gyro']
+			accel = data['accel']
+			return(position, gyro, accel)
 		else:
-			return([0,0,0])
+			return(False, False, False)
 	    
 
 if __name__ == '__main__':
 	imup = IMUPoller()
 	time.sleep(0.2)
 	while True:
-		IMU_position = imup.getIMU_position()
-		if (IMU_position[0] != 0):
-			print("r: %f p: %f y: %f" % (math.degrees(IMU_position[0]), 
-		        math.degrees(IMU_position[1]), math.degrees(IMU_position[2])))
-		time.sleep(0.2)
+		#IMU_position = imup.getIMU_position()
+		#if (IMU_position[0] != 0):
+			#print("r: %f p: %f y: %f" % (math.degrees(IMU_position[0]), 
+		     #   math.degrees(IMU_position[1]), math.degrees(IMU_position[2])))
+		#IMU_Gyro = imup.getIMU_gyro()
+		#if(IMU_Gyro[0]!=0):
+		#print("Gyro Yaw: %f" % (IMU_Gyro[2]) )
+		IMU_position, IMU_gyro, IMU_accel = imup.getIMU()
+		if(IMU_position!=False):
+			print("\nPosition: r: %f p: %f y: %f" % (math.degrees(IMU_position[0]), 
+						math.degrees(IMU_position[1]), 
+						math.degrees(IMU_position[2]) ) )
+			print("Gyro: r: %f p: %f y: %f" % (IMU_gyro[0], IMU_gyro[1], IMU_gyro[2]) )
+			print("Accel: X: %f Y: %f Z: %f" % (IMU_accel[0], IMU_accel[1], IMU_accel[2]) )
+		time.sleep(1)
