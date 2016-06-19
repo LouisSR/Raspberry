@@ -50,7 +50,7 @@ class COMwithArduino:
 	#Check if start byte and length are correct and return data without start and length bytes
 		if data[0] != 15: #test if start byte is expected
 			print "Wrong Start byte"
-			return None
+			return False
 		length = data[1]
 		message = data[2:2+length]
 

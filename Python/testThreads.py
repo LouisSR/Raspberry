@@ -91,7 +91,7 @@ class Thread_COM(Thread):
 			global COM_message, Mode
 			COM_message = self.arduino.Read() #Receive data from Arduino
 			if COM_message == False:
-				break
+				continue #skip the rest of this while loop and goes back to testing the expression
 			if self.debug:
 				print "COM: ", COM_message
 			battery_voltage = COM_message[0]
