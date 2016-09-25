@@ -12,3 +12,5 @@ Python/Archives/*
 Python/images/*
 
 *.pyc
+
+.DS_Store
