@@ -2,24 +2,35 @@
 
 import time
 import math
-import sys
+import sys, os
 from threading import Thread
-from minIMU import IMUPoller
+#from minIMU import IMUPoller
 from COMwithArduino import COMwithArduino
-from gpsUltimate import GpsPoller
+#from gpsUltimate import GpsPoller #Conflict with Camera!
 from saveData import SaveData
 from ImageAquisition import ImageAquisition
 
 Done = False
-Mode = 0 # mode == 0: remote only
-		 # mode == 1: remote with IMU correction
-		 # mode == 2: autonomous mode with camera
 
+CAMERA_RUNNING = 0
+CAMERA_START = 1
+CAMERA_STOP = 2
+CAMERA_STOPPED = 3
+Camera_state = CAMERA_STOPPED
+BestBlob = []
+
+MODE_REMOTE = 0 #remote only
+MODE_CAMERA = 1 # autonomous mode with camera
+MODE_SHUTDOWN = 2 # shutdown mode
+Mode = MODE_REMOTE
+		 
 IMU_position = []
 IMU_accel = []
 IMU_gyro = []
 COM_message = []
 GPS_position = []
+Camera_target = []
+
 
 
 class Thread_IMU(Thread):
@@ -65,7 +76,7 @@ class Thread_COM(Thread):
 	def __init__(self, sleep_time, debug=False):
 		super(Thread_COM, self).__init__()
 		print "COM Init"
-		self.arduino = COMwithArduino(0x12, 10, debug)
+		self.arduino = COMwithArduino(0x12, 10, debug=False)
 		self.transmission_time = 0.005
 		self.sleep_time = sleep_time - self.transmission_time
 		self.debug = debug
@@ -73,17 +84,16 @@ class Thread_COM(Thread):
 		self.log = SaveData("./images/test/log")
 		COM_header = ["Battery", "Luminosity", "Remote Speed", "Remote Steering", "Remote Switch", "Motor Speed", "Steering", "Motor State"]
 		Motor_header = ["Motor speed", "Steering"]
-		IMU_header = ["IMU Roll", "IMU Pitch", "IMU Yaw", "Gyro Roll", "Gyro Pitch", "Gyro Yaw", "Acc X", "Acc Y", "Acc Z"]
-		GPS_header = ["GPS Longitude", "GPS Lattitude", "GPS altitude"]
+		#IMU_header = ["IMU Roll", "IMU Pitch", "IMU Yaw", "Gyro Roll", "Gyro Pitch", "Gyro Yaw", "Acc X", "Acc Y", "Acc Z"]
+		#GPS_header = ["GPS Longitude", "GPS Lattitude", "GPS altitude"]
 		Camera_header = ["Camera X", "Camera Y"]
 		header = ["Time"]
 		header.extend(COM_header)
 		header.extend(Motor_header)
-		header.extend(IMU_header)
-		header.extend(GPS_header)
+		#header.extend(IMU_header)
+		#header.extend(GPS_header)
 		header.extend(Camera_header)
 		self.log.write(header)
-		self.factorP = 60 # P factor for steering control
 
 	def run(self):
 		while not Done:
@@ -92,39 +102,46 @@ class Thread_COM(Thread):
 			COM_message = self.arduino.Read() #Receive data from Arduino
 			if COM_message == False:
 				continue #skip the rest of this while loop and goes back to testing the expression
-			if self.debug:
-				print "COM: ", COM_message
+			#if self.debug:
+				#print "COM: ", COM_message
 			battery_voltage = COM_message[0]
 			remote_speed = COM_message[2]-100
 			remote_steering = COM_message[3]-100
-			Mode = COM_message[4] 
+			Mode = COM_message[4] #Mode = switch value
+
 			if battery_voltage > 70:
-				if Mode == 1: #remote with IMU correction
-					if self.debug:
-						print "steering: ", remote_steering, self.factorP, IMU_gyro[2]
-					motor_steering = int(remote_steering - self.factorP*IMU_gyro[2])
-					motor_speed = remote_speed
-				elif Mode == 2: #Autonomous mode with camera
+				if Mode == MODE_REMOTE: #if Mode = 0, no processing, data are only logged
 					motor_speed = remote_speed
 					motor_steering = remote_steering
-				else: #if Mode = 0, no processing, data are only logged
-					motor_speed = remote_speed
-					motor_steering = remote_steering
+				elif Mode == MODE_CAMERA: #Autonomous mode with camera
+					if BestBlob:
+						motor_steering = int( (BestBlob[0]-Camera_target[0]) ) #image width
+						motor_speed = int( (Camera_target[1] - BestBlob[1])/2 ) #image height
+					else:
+						motor_speed = 0
+						motor_steering = 0
+				else: #if Mode = 2, stop the car
+					motor_speed = 0
+					motor_steering = 0
+
 			else: # Low battery : stop the car
 				motor_speed = 0
 				motor_steering = 0
 
 			message2Arduino = [motor_speed+100, motor_steering+100, 0]
+			if self.debug:
+				print' BestBlob: ',BestBlob[0],' \t', motor_steering
 			self.arduino.Send(message2Arduino) #Send data to Arduino
 			#Log data
 			data = []
 			data.extend([time.time()])
 			data.extend(COM_message)
 			data.extend(message2Arduino)
-			data.extend(IMU_position)
-			data.extend(IMU_gyro)
-			data.extend(IMU_accel)
-			data.extend(GPS_position)
+			data.extend(BestBlob)
+			#data.extend(IMU_position)
+			#data.extend(IMU_gyro)
+			#data.extend(IMU_accel)
+			#data.extend(GPS_position)
 			#data.extend(im_proc)
 			# if self.debug:
 			# 	print "Logging: ", data
@@ -136,37 +153,53 @@ class Thread_COM(Thread):
 
 		
 if __name__ == '__main__':
-	#Init
 
-	capture_resolution = (800,600)
+	#Camera Init
+	resolution_width = 800
+	resolution_height = 600
 	resize_factor = 2
+	Camera_target = [50, 40] #Init target Best blob position
 	color = int(sys.argv[1])
 	framerate = int(sys.argv[2])
 
-	thread_imu = Thread_IMU(0.05, debug=False)
+	#thread_imu = Thread_IMU(0.05, debug=False)
 	thread_com = Thread_COM(0.1, debug=True)
 	#thread_gps = Thread_GPS(0.5, debug=False)
-	#thread_camera = ImageAquisition(capture_resolution, framerate, color, resize_factor=resize_factor, debug=False)
-
-	print ''
+	
+	print '\nStarting with:', color, framerate, '\n'
 	#Start threads
 	time_start = time.time()
-	#thread_camera.start()
-	thread_imu.start()
+	#thread_imu.start()
 	#thread_gps.start()
 	time.sleep(0.5) # Wait for data aquisition
 	thread_com.start()
 
 
-	time.sleep(10)
+
+	while not Done:
+		time.sleep(0.1)
+		#Update Camera_state
+		if Mode == 1 and Camera_state == CAMERA_STOPPED: #Start camera when entering Mode 1
+			Camera_state = CAMERA_START
+			print 'Camera start'
+		elif Mode != 1 and Camera_state == CAMERA_RUNNING: #Stop camera when exiting Mode 1
+			Camera_state = CAMERA_STOP
+			
+		#Start or stop camera
+		if Camera_state == CAMERA_START:
+			thread_camera = ImageAquisition((resolution_width,resolution_height), framerate, color, resize_factor=resize_factor, debug=True)
+			thread_camera.start()
+			Camera_state = CAMERA_RUNNING
+		elif Camera_state == CAMERA_STOP:
+			thread_camera.stop()
+			Camera_state = CAMERA_STOPPED
+			print 'Camera stop'
+
+		if Camera_state == CAMERA_RUNNING:
+			BestBlob = thread_camera.getBlob()
 	
-	#Stop threads
-	Done = True
-	#images_processed = thread_camera.stop()
-	loop_time = time.time()-time_start
-	
-	# print ''
-	# print 'Loop time:         %.1f' % (loop_time/images_processed)
-	# print 'Processed Images: ', images_processed
-	# print 'Real framerate:    %.2f'  % (images_processed/loop_time)
-	# print ''
+		if Mode == 2:
+			Done = True
+
+	time.sleep(2) # Wait for threads to stop
+	os.system("sudo shutdown -h now")  # Shutdown
