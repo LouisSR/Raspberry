@@ -14,6 +14,7 @@ from blobDetection import BlobDetection
 iteration = 0
 lock = Lock()
 pool = []
+BestBlob = []
 
 class ImageProcessor(Thread):
 	def __init__(self, color, debug=False):
@@ -29,7 +30,7 @@ class ImageProcessor(Thread):
 
 	def run(self):
 		# This method runs in a separate thread
-		global iteration, lock, pool
+		global iteration, lock, pool, BestBlob
 		while not self.terminated:
 			# Wait for an image to be written to the stream
 			if self.event.wait(1):
@@ -40,13 +41,19 @@ class ImageProcessor(Thread):
 					data = np.fromstring(self.stream.getvalue(), dtype=np.uint8)
 					image = cv2.imdecode(data, 1)
 					if self.debug:
-						print 'Iteration: ', iteration
-					if iteration%10:
-						status = self.blob.detect(image, self.color, save=False)
+						print '\nIteration: ', iteration,
+					if iteration%10: #Save every 10th image
+						blob_detected = self.blob.detect(image, self.color, save=False)
 					else:
-						status = self.blob.detect(image, self.color, save=True)
-					if not status :
-						print "No blob"
+						blob_detected = self.blob.detect(image, self.color, save=True)
+					if blob_detected:
+						BestBlob = [self.blob.best_keypoint_x, self.blob.best_keypoint_y]
+						BestBlob = [self.blob.best_keypoint_x, 150]
+						if self.debug:
+							print ' Blob: ', BestBlob
+					else:
+						BestBlob = []
+						print " No blob"
 					iteration += 1
 
 				finally:
@@ -57,6 +64,8 @@ class ImageProcessor(Thread):
 					# Return ourselves to the pool
 					with lock:
 						pool.append(self)
+
+
 
 class ImageAquisition(Thread):
 	def __init__(self, resolution, framerate, color, resize_factor=1, debug=False):
@@ -73,6 +82,16 @@ class ImageAquisition(Thread):
 		#camera.start_preview()
 		time.sleep(2)
 		self.aquire = True
+
+	def getBlob(self):
+		#This function retunrs Blob coordinates as integers [-100,100]
+		global BestBlob
+		if BestBlob:
+			blob = [ 100 * BestBlob[0] / self.resized[0], 100 * BestBlob[1] / self.resized[1] ]
+		else:
+			blob = BestBlob
+		return blob
+
 
 	def run(self):
 		try:
