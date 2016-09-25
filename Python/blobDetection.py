@@ -23,7 +23,7 @@ class BlobDetection:
 
 		# Filter by Area.
 		params.filterByArea = True
-		params.minArea = 100
+		params.minArea = 250
 		params.maxArea = 70000
 
 		# Filter by Circularity
@@ -45,10 +45,12 @@ class BlobDetection:
 		self.path = path
 
 	def binarize(self,color):
+		#Add a white frame
+		image2 = cv2.copyMakeBorder(self.image,10,10,10,10,cv2.BORDER_CONSTANT,value=[0,0,0])
 		#Change BGR to HSV
-		image_hsv = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
+		image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2HSV)
 
-		color_interval = 7
+		color_interval = 6
 		max_hue = 180
 
 		if color < color_interval:
@@ -65,20 +67,22 @@ class BlobDetection:
 			two_ranges = False
 
 		high_color = np.array((high_hue, 255, 255))
-		low_color = np.array((low_hue, 50, 50))
+		low_color = np.array((low_hue, 100, 100))
 
 		if self.debug:
 			print "[Binarize] Color: %d --> [%d, %d]" % (color, low_hue, high_hue), two_ranges
 
 		if two_ranges:
-			min_color = np.array((0, 50, 50))
+			min_color = np.array((0, 100, 100))
 			max_color = np.array((max_hue, 255, 255))
-			imageBW = cv2.inRange(image_hsv, min_color, high_color) + cv2.inRange(image_hsv, low_color, max_color)
+			imageBW = cv2.inRange(image2, min_color, high_color) + cv2.inRange(image2, low_color, max_color)
 		else:
-			imageBW = cv2.inRange(image_hsv, low_color, high_color)
+			imageBW = cv2.inRange(image2, low_color, high_color)
 
 		imageBW = 255-imageBW #Invert color: detector needs black blobs, ie. background is white
-
+		kernel = np.ones((3, 3))
+		imageBW = cv2.dilate(imageBW,kernel) #remove small blob
+		imageBW = cv2.erode(imageBW,kernel)#fill small holes
 		return(imageBW)
 
 	def detect(self, image, color, save=True):
@@ -108,12 +112,14 @@ class BlobDetection:
 			#Select biggest keypoint
 			for i in range(len(self.keypoints)):
 				size = self.keypoints[i].size
+				if(self.debug):
+					print "[Select] keypoint size ",i, size
 				if size > max_size:
 					max_size = size
 					self.best_keypoint = self.keypoints[i]
-				if(self.debug):
-					print "[Select] keypoint size ",size
 
+			if(self.debug):
+				print "[Select] Largest keypoint ", max_size
 			self.best_keypoint_x = int(self.best_keypoint.pt[0])
 			self.best_keypoint_y = int(self.best_keypoint.pt[1])
 			return True
